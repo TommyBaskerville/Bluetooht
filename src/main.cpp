@@ -3,33 +3,46 @@
 #include <ESP32Servo.h>
 
 // Definición de pines
-#define steeringPin 32      // Pin del servomotor
-#define IN1 21               // Pin IN1 del motor
-#define IN2 19               // Pin IN2 del motor
+#define steeringPin 13      // Pin del servomotor
+#define IN1 19               // Pin IN1 del motor
+#define IN2 18              // Pin IN2 del motor
 
-constexpr int STEERING_CENTER = 82;
-constexpr int STEERING_TRIM = 0;
-constexpr int STEERING_MAX_DELTA = 20;
-constexpr int STEERING_ABS_MIN = 0;
-constexpr int STEERING_ABS_MAX = 180;
+// El servo se controla directamente en microsegundos (más preciso que grados).
+// Servo S0017M: centro = 1520 us.
+constexpr int STEERING_CENTER_US = 1520;
+constexpr int STEERING_TRIM_US = 0;         // Ajuste fino del centro (+/- unos pocos us)
+// Recorrido máximo desde el centro, por lado (máx. 480 por los límites de abajo).
+// Si un lado fuerza, bájalo; si le falta giro, súbelo.
+constexpr int STEERING_LEFT_DELTA_US = 250;
+constexpr int STEERING_RIGHT_DELTA_US = 450;
+constexpr int SERVO_MIN_US = 1000;
+constexpr int SERVO_MAX_US = 2000;
+constexpr bool STEERING_INVERT = true;    // true si el giro sale al revés
+
 constexpr int JOYSTICK_MIN = -7;
 constexpr int JOYSTICK_MAX = 7;
 constexpr int JOYSTICK_DEADZONE = 1;
 constexpr uint32_t SERVO_STEP_INTERVAL_MS = 15;
-constexpr int SERVO_STEP_DEG = 1;
+constexpr int SERVO_STEP_US = 15;
 
-int steeringCurrent = STEERING_CENTER;
-int steeringTarget = STEERING_CENTER;
+int steeringCurrent = STEERING_CENTER_US + STEERING_TRIM_US;
+int steeringTarget = STEERING_CENTER_US + STEERING_TRIM_US;
 uint32_t lastServoStepMs = 0;
 
 // Objeto para el servomotor
 Servo steeringServo;
 
-int clampSteeringAngle(int angle) {
-  const int steeringCenterWithTrim = STEERING_CENTER + STEERING_TRIM;
-  const int steeringLimitMin = max(STEERING_ABS_MIN, steeringCenterWithTrim - STEERING_MAX_DELTA);
-  const int steeringLimitMax = min(STEERING_ABS_MAX, steeringCenterWithTrim + STEERING_MAX_DELTA);
-  return constrain(angle, steeringLimitMin, steeringLimitMax);
+// Convierte el eje X del joystick (negativo = izquierda) en microsegundos.
+int steeringFromJoystick(int x) {
+  const int center = STEERING_CENTER_US + STEERING_TRIM_US;
+  const int magnitude = min(abs(x), JOYSTICK_MAX);
+  const bool isLeft = x < 0;
+  const int delta = isLeft ? STEERING_LEFT_DELTA_US : STEERING_RIGHT_DELTA_US;
+  const int offset = magnitude * delta / JOYSTICK_MAX;
+  // Con STEERING_INVERT, la izquierda corresponde a más microsegundos.
+  const int leftSign = STEERING_INVERT ? 1 : -1;
+  const int sign = isLeft ? leftSign : -leftSign;
+  return constrain(center + sign * offset, SERVO_MIN_US, SERVO_MAX_US);
 }
 
 void updateSteeringSmooth() {
@@ -41,27 +54,32 @@ void updateSteeringSmooth() {
   lastServoStepMs = now;
 
   if (steeringCurrent < steeringTarget) {
-    steeringCurrent = min(steeringCurrent + SERVO_STEP_DEG, steeringTarget);
+    steeringCurrent = min(steeringCurrent + SERVO_STEP_US, steeringTarget);
   } else if (steeringCurrent > steeringTarget) {
-    steeringCurrent = max(steeringCurrent - SERVO_STEP_DEG, steeringTarget);
+    steeringCurrent = max(steeringCurrent - SERVO_STEP_US, steeringTarget);
   }
 
-  steeringServo.write(steeringCurrent);
+  steeringServo.writeMicroseconds(steeringCurrent);
 }
 
 // Configuración inicial
 void setUpPinModes() {
-  // Conectar el servomotor al pin especificadoA
-  steeringServo.attach(steeringPin);
+  // Reservar temporizadores PWM para el servo y fijar 50 Hz
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+  steeringServo.setPeriodHertz(50);
+  steeringServo.attach(steeringPin, SERVO_MIN_US, SERVO_MAX_US);
 
   // Configurar los pines del motor como salidas
   pinMode(IN1, OUTPUT);
   pinMode(IN2, OUTPUT);
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
 
-  // Detener el motor y colocar el servomotor en posición neutra (82°)
-  steeringCurrent = clampSteeringAngle(STEERING_CENTER + STEERING_TRIM);
+  // Dirección recta al encender
+  steeringCurrent = STEERING_CENTER_US + STEERING_TRIM_US;
   steeringTarget = steeringCurrent;
-  steeringServo.write(steeringCurrent);
+  steeringServo.writeMicroseconds(steeringCurrent);
 }
 
 // Función para controlar el motor
@@ -98,29 +116,23 @@ void loop() {
   // Procesar las entradas del gamepad
   Dabble.processInput();
 
-  // Variables para el control del motor y el servomotor
   int motorDirection = 0;
-  int steering = clampSteeringAngle(STEERING_CENTER + STEERING_TRIM);
+  const int center = STEERING_CENTER_US + STEERING_TRIM_US;
+  int steering = center;
 
   // Control de movimiento mediante botones
   if (GamePad.isCrossPressed()) {
     motorDirection = 1; // Avanzar
   } else if (GamePad.isSquarePressed()) {
     motorDirection = -1; // Retroceder
-  } else {
-    motorDirection = 0; // Detener el motor
   }
 
-  // Control de dirección mediante el eje X
+  // Control de dirección mediante el eje X del joystick
   int xAxisValue = static_cast<int>(GamePad.getXaxisData());
   if (xAxisValue >= -JOYSTICK_DEADZONE && xAxisValue <= JOYSTICK_DEADZONE) {
-    steering = clampSteeringAngle(STEERING_CENTER + STEERING_TRIM);
+    steering = center;  // Joystick suelto: vuelve al centro
   } else {
-    const int steeringCenterWithTrim = STEERING_CENTER + STEERING_TRIM;
-    const int steeringLimitMin = clampSteeringAngle(steeringCenterWithTrim - STEERING_MAX_DELTA);
-    const int steeringLimitMax = clampSteeringAngle(steeringCenterWithTrim + STEERING_MAX_DELTA);
-    steering = map(xAxisValue, JOYSTICK_MIN, JOYSTICK_MAX, steeringLimitMin, steeringLimitMax);
-    steering = clampSteeringAngle(steering);
+    steering = steeringFromJoystick(xAxisValue);
   }
 
   // Actualizar el motor y el servomotor
@@ -134,7 +146,9 @@ void loop() {
     lastDebugMs = millis();
     Serial.print("Motor Direction: ");
     Serial.print(motorDirection);
-    Serial.print("\tSteering Angle: ");
+    Serial.print("\tX: ");
+    Serial.print(xAxisValue);
+    Serial.print("\tSteering (us): ");
     Serial.println(steering);
   }
 }
