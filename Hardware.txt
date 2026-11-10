@@ -1,0 +1,24 @@
+ESP32-WROOM-32 development board and Shield
+Development board model: ESP32-DevKitC-32 30P
+Module model: ESP32-WROOM-32
+Main control chip: dual-core 32bit MCU
+Integrated WiFi, Bluetooth,
+Integrated RTC
+External storage: 4MB
+USB driver chip: CH340C, with good system compatibility, higher download speed, and more stability.
+Support VIN external wide voltage input 5-12V power supply. Support USB power supply, external 3.3V power supply, and VIN power supply = three kinds of power supply.
+Development board size: 52*28mm/weight about 9.5g.
+Support ArduinoIDE mixly, mind+, Python and other programming software.
+
+Driver puente H L298N
+SKU: 100-60
+Control de 2 motores DC o 1 motor paso a paso
+Voltaje de operación: 5V – 35V
+Corriente máxima por canal: 2ª
+Regulador de 5V integrado (puede alimentar microcontrolador)
+Optimiza el rendimiento de tus sistemas de control con el Módulo Puente H L298N, una solución robusta y eficiente para manejar motores eléctricos en tus proyectos.
+
+Motor con escobillas MN 260
+Caja de cambios práctica para vehículos teledirigidos Esta caja de cambios de motor 2 uds es ideal para modelos como MN D90, D91, MN98, MN99S, MN45, ofreciendo una solución de repuesto confiable para mantenimiento o actualización de juguetes a control remoto.
+Material duradero y ligero en plástico Fabricada en plástico, esta pieza de repuesto garantiza resistencia y bajo peso, adecuada para uso en vehículos teledirigidos de 1/12 escala, asegurando un rendimiento estable durante el manejo.
+Compatible con múltiples modelos de coches teledirigidos Diseñada para ser accesorio de actualización de coches teledirigidos, es compatible con una amplia gama de modelos, incluyendo MN45, MN98, MN99S, facilitando su integración sin necesidad de modificaciones.

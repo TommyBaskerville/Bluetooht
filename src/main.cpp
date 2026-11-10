@@ -3,7 +3,7 @@
 #include <ESP32Servo.h>
 
 // Definición de pines
-#define steeringPin 13      // Pin del servomotor
+#define steeringPin 5     // Pin del servomotor
 #define IN1 19               // Pin IN1 del motor
 #define IN2 18              // Pin IN2 del motor
 
@@ -13,8 +13,8 @@ constexpr int STEERING_CENTER_US = 1520;
 constexpr int STEERING_TRIM_US = 0;         // Ajuste fino del centro (+/- unos pocos us)
 // Recorrido máximo desde el centro, por lado (máx. 480 por los límites de abajo).
 // Si un lado fuerza, bájalo; si le falta giro, súbelo.
-constexpr int STEERING_LEFT_DELTA_US = 250;
-constexpr int STEERING_RIGHT_DELTA_US = 450;
+constexpr int STEERING_LEFT_DELTA_US = 300;
+constexpr int STEERING_RIGHT_DELTA_US = 440;
 constexpr int SERVO_MIN_US = 1000;
 constexpr int SERVO_MAX_US = 2000;
 constexpr bool STEERING_INVERT = true;    // true si el giro sale al revés
